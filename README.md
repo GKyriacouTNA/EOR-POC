@@ -159,7 +159,7 @@ erDiagram
     text variant_code "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-
+```
 ```text
 Department -> Series -> Record -> Version -> Representation -> File
 Consignment -> File
