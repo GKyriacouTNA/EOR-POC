@@ -1,0 +1,43 @@
+# Keep the Compose project and Docker network name stable. Floci uses this
+# network later to start Lambda and RDS containers that can reach one another.
+name: local-eor
+
+services:
+  floci:
+    # Floci is a local AWS emulator. It provides AWS-compatible APIs without
+    # contacting an AWS account.
+    image: floci/floci:latest
+    ports:
+      # AWS-compatible HTTP endpoint. AWS CLI and future application code call
+      # Floci here instead of calling an AWS regional endpoint.
+      - "4566:4566"
+      # Reserved now for the PostgreSQL RDS endpoint created in Step 3. No
+      # database exists yet, but exposing this range avoids a later redesign.
+      - "7001-7099:7001-7099"
+    volumes:
+      # Lambda and RDS are implemented by Floci as child Docker containers, so
+      # Floci needs permission to create and manage them on the host daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Floci writes its resource metadata here so queues, functions, and other
+      # emulated AWS resources survive a Floci container restart.
+      - floci-data:/app/data
+    environment:
+      # Generated URLs use the service DNS name, allowing future Compose
+      # containers and Floci-created Lambda containers to reach the emulator.
+      FLOCI_HOSTNAME: floci
+      # Explicitly tell Floci which Compose network to use for child containers.
+      FLOCI_SERVICES_DOCKER_NETWORK: local-eor_default
+      # Step 5 local-development mode: Floci mounts the host Lambda source into
+      # a fresh function container per invocation, so edits need no deployment.
+      FLOCI_SERVICES_LAMBDA_HOT_RELOAD_ENABLED: "true"
+      # Restrict bind mounts to this repository rather than allowing arbitrary
+      # host paths. PWD is evaluated by Docker Compose on the host.
+      FLOCI_SERVICES_LAMBDA_HOT_RELOAD_ALLOWED_PATHS: ${PWD}
+      # Persist Floci metadata synchronously in the named volume above.
+      FLOCI_STORAGE_MODE: persistent
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+
+volumes:
+  # Docker manages this named volume. It is intentionally not bind-mounted into
+  # the repository, and `docker compose down` does not remove it by default.
+  floci-data:

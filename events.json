@@ -1,0 +1,34 @@
+[
+  {
+    "event_id": "11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "entity_type": "version",
+    "entity_key": { "version_id": "10000000-0000-4000-8000-000000000006" },
+    "change_type": "U",
+    "changes": { "default_title_code": "en_r_1" },
+    "changed_by": { "id": "archivist.1", "name": "Archivist One" },
+    "reason": "Select redacted English title as the default display title",
+    "source": "archival-demo"
+  },
+  {
+    "event_id": "22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "entity_type": "version_title",
+    "entity_key": {
+      "version_title_id": "10000000-0000-4000-8000-000000000013"
+    },
+    "change_type": "U",
+    "changes": { "title_text": "Demonstration record: redacted title" },
+    "changed_by": { "id": "archivist.1", "name": "Archivist One" },
+    "reason": "Apply approved redacted title following cataloguing review",
+    "source": "archival-demo"
+  },
+  {
+    "event_id": "33333333-cccc-4ccc-8ccc-cccccccccccc",
+    "entity_type": "closure",
+    "entity_key": { "closure_id": "10000000-0000-4000-8000-000000000014" },
+    "change_type": "U",
+    "changes": { "status": "discontinued" },
+    "changed_by": { "id": "closure.officer", "name": "Closure Officer" },
+    "reason": "Closure review complete; title is now open",
+    "source": "archival-demo"
+  }
+]
