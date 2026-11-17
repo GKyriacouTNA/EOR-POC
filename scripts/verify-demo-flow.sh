@@ -25,10 +25,10 @@ printf 'Latest log stream: %s\n' "$stream"
 aws logs get-log-events --log-group-name /aws/lambda/metadata-change-processor --log-stream-name "$stream" --endpoint-url "$AWS_ENDPOINT_URL" --query 'events[].message' --output text
 
 printf '\n=== 4. Current RDS State ===\n'
-PGPASSWORD="$LOCAL_RDS_PASSWORD" psql --host "$host" --port "$port" --username "$LOCAL_RDS_USERNAME" --dbname "$LOCAL_RDS_DATABASE" --command "SELECT * FROM archive.current_version_display; SELECT sensitvity_id,status,updated_at FROM archive.sensitvity;"
+PGPASSWORD="$LOCAL_RDS_PASSWORD" psql --host "$host" --port "$port" --username "$LOCAL_RDS_USERNAME" --dbname "$LOCAL_RDS_DATABASE" --command "SELECT * FROM archive.current_version_display; SELECT sensitivity_id,status,updated_at FROM archive.sensitivity;"
 
 printf '\n=== 5. SCD Type 2 History ===\n'
-PGPASSWORD="$LOCAL_RDS_PASSWORD" psql --host "$host" --port "$port" --username "$LOCAL_RDS_USERNAME" --dbname "$LOCAL_RDS_DATABASE" --command "SELECT 'version' AS entity,count(*) AS history_rows,count(*) FILTER (WHERE is_current) AS current_rows FROM history.version UNION ALL SELECT 'title',count(*),count(*) FILTER (WHERE is_current) FROM history.version_title WHERE version_title_id='10000000-0000-4000-8000-000000000013' UNION ALL SELECT 'sensitvity',count(*),count(*) FILTER (WHERE is_current) FROM history.sensitvity;"
+PGPASSWORD="$LOCAL_RDS_PASSWORD" psql --host "$host" --port "$port" --username "$LOCAL_RDS_USERNAME" --dbname "$LOCAL_RDS_DATABASE" --command "SELECT 'version' AS entity,count(*) AS history_rows,count(*) FILTER (WHERE is_current) AS current_rows FROM history.version UNION ALL SELECT 'title',count(*),count(*) FILTER (WHERE is_current) FROM history.version_title WHERE version_title_id='10000000-0000-4000-8000-000000000013' UNION ALL SELECT 'sensitivity',count(*),count(*) FILTER (WHERE is_current) FROM history.sensitivity;"
 
 printf '\n=== 6. SQS Event Audit ===\n'
 PGPASSWORD="$LOCAL_RDS_PASSWORD" psql --host "$host" --port "$port" --username "$LOCAL_RDS_USERNAME" --dbname "$LOCAL_RDS_DATABASE" --command "SELECT entity_type,change_type,outcome,processing_status,changed_by_name,change_reason,changed_at FROM archive.metadata_change_event ORDER BY processed_at;"

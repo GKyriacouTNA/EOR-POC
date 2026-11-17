@@ -116,26 +116,26 @@ def apply_event(e):
                 why=why,
                 e=eid,
             )
-        elif typ == "sensitvity":
-            i = e["entity_key"]["sensitvity_id"]
+        elif typ == "sensitivity":
+            i = e["entity_key"]["sensitivity_id"]
             old = c.run(
-                "SELECT version_id,version_title_id,version_description_id,version_path_id,sensitvity_code,status,review_date FROM archive.sensitvity WHERE sensitvity_id=:i FOR UPDATE",
+                "SELECT version_id,version_title_id,version_description_id,version_path_id,sensitivity_code,status,review_date FROM archive.sensitivity WHERE sensitivity_id=:i FOR UPDATE",
                 i=i,
             )[0]
             status = e["changes"].get("status", old[5])
             c.run(
-                "UPDATE archive.sensitvity SET status=:s,updated_at=:at WHERE sensitvity_id=:i",
+                "UPDATE archive.sensitivity SET status=:s,updated_at=:at WHERE sensitivity_id=:i",
                 s=status,
                 at=at,
                 i=i,
             )
             c.run(
-                "UPDATE history.sensitvity SET is_current=false,valid_to=:at WHERE sensitvity_id=:i AND is_current",
+                "UPDATE history.sensitivity SET is_current=false,valid_to=:at WHERE sensitivity_id=:i AND is_current",
                 at=at,
                 i=i,
             )
             c.run(
-                "INSERT INTO history.sensitvity VALUES (:row,:i,:v,:t,:d,:p,:code,:status,:review,:at,NULL,true,:at,:by,:name,:why,:e)",
+                "INSERT INTO history.sensitivity VALUES (:row,:i,:v,:t,:d,:p,:code,:status,:review,:at,NULL,true,:at,:by,:name,:why,:e)",
                 row=str(uuid.uuid4()),
                 i=i,
                 v=old[0],

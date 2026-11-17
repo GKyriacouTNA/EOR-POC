@@ -98,15 +98,23 @@ CREATE TABLE archive.consignment (
   updated_at timestamptz NOT NULL
 );
 
-CREATE TABLE archive.sensitvity (
-  sensitvity_id uuid PRIMARY KEY,
+CREATE TABLE archive.sensitivity (
+  sensitivity_id uuid PRIMARY KEY,
   version_id uuid REFERENCES archive.version,
   version_title_id uuid REFERENCES archive.version_title,
   version_description_id uuid REFERENCES archive.version_description,
   version_path_id uuid REFERENCES archive.version_path,
-  sensitvity_code text NOT NULL,
-  status text NOT NULL CHECK (status IN ('active', 'discontinued')),
+  sensitivity_type text NOT NULL CHECK (sensitivity_type in ('FOIA','AUR','Retained','not crown copyright','commercial','do not publish')), 
+  sensitivity_type_code text,
+  sensitivity_status text NOT NULL CHECK (sensitivity_status IN ('active', 'lapsed','under review','superceeded','cancelled')),
+  sensitivity_start date,
+  sensitivity_period text,
+  sensitivity_rule text NOT NULL CHECK (sensitivity_rule IN ('JAN_AFTER_PERIOD','EXACT_PERIOD','MANUAL')),
+  sensitivity_end date,
   review_date date,
+  review_outcome text,
+  schedule_reference text,
+  archivist_note text,
   updated_at timestamptz NOT NULL,
   CHECK (
     num_nonnulls (
@@ -305,16 +313,24 @@ CREATE TABLE history.consignment (
   source_event_id uuid UNIQUE NOT NULL
 );
 
-CREATE TABLE history.sensitvity (
+CREATE TABLE history.sensitivity (
   history_id uuid PRIMARY KEY,
-  sensitvity_id uuid NOT NULL REFERENCES archive.sensitvity,
+  sensitivity_id uuid NOT NULL REFERENCES archive.sensitivity,
   version_id uuid REFERENCES archive.version,
   version_title_id uuid REFERENCES archive.version_title,
   version_description_id uuid REFERENCES archive.version_description,
   version_path_id uuid REFERENCES archive.version_path,
-  sensitvity_code text NOT NULL,
-  status text NOT NULL,
+  sensitivity_type text NOT NULL CHECK (sensitivity_type in ('FOIA','AUR','Retained','not crown copyright','commercial','do not publish')), 
+  sensitivity_type_code text,
+  sensitivity_status text NOT NULL CHECK (sensitivity_status IN ('active', 'lapsed','under review','superceeded','cancelled')),
+  sensitivity_start date,
+  sensitivity_period text,
+  sensitivity_rule text NOT NULL CHECK (sensitivity_rule IN ('JAN_AFTER_PERIOD','EXACT_PERIOD','MANUAL')),
+  sensitivity_end date,
   review_date date,
+  review_outcome text,
+  schedule_reference text,
+  archivist_note text,
   valid_from timestamptz NOT NULL,
   valid_to timestamptz,
   is_current boolean NOT NULL,
@@ -347,13 +363,13 @@ FROM
   LEFT JOIN archive.version_path p ON p.version_id = v.version_id
   AND p.path_code = v.default_path_code;
 
-CREATE VIEW archive.current_active_sensitvity AS
+CREATE VIEW archive.current_active_sensitivity AS
 SELECT
   *
 FROM
-  archive.sensitvity
+  archive.sensitivity
 WHERE
-  status = 'active';
+  sensitivity_status in ('active','under review');
 
 INSERT INTO
   archive.department
@@ -481,7 +497,7 @@ VALUES
   );
 
 INSERT INTO
-  archive.sensitvity
+  archive.sensitivity
 VALUES
   (
     '10000000-0000-4000-8000-000000000014',
@@ -489,9 +505,17 @@ VALUES
     '10000000-0000-4000-8000-000000000013',
     NULL,
     NULL,
-    'REDACTED',
+    'FOIA',
+    '40(2)',
     'active',
-    '2026-12-01',
+    '2026-02-01',
+    'P2Y5M',
+    'JAN_AFTER_PERIOD',
+    '2029-01-01',
+    NULL,
+    NULL,
+    NULL,
+    NULL,
     '2026-11-09'
   );
 
@@ -693,24 +717,32 @@ FROM
   archive.consignment;
 
 INSERT INTO
-  history.sensitvity
+  history.sensitivity
 SELECT
   gen_random_uuid (),
-  sensitvity_id,
+  sensitivity_id,
   version_id,
   version_title_id,
   version_description_id,
   version_path_id,
-  sensitvity_code,
-  status,
+  sensitivity_type,
+  sensitivity_type_code,
+  sensitivity_status,
+  sensitivity_start,
+  sensitivity_period,
+  sensitivity_rule,
+  sensitivity_end,
   review_date,
+  review_outcome,
+  schedule_reference,
+  archivist_note,
   '2026-11-09',
   NULL,
   true,
   '2026-11-09',
-  'sensitvity.officer',
+  'sensitivity.officer',
   'Closure Officer',
   'Initial',
   gen_random_uuid ()
 FROM
-  archive.sensitvity;
+  archive.sensitivity;

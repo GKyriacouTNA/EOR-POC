@@ -31,10 +31,10 @@ closes/inserts the corresponding SCD rows in `history`, and stores a full event
 ## Model
 ```mermaid
 erDiagram
-  version_description |o--o{ sensitvity : "version_description_id -> version_description_id"
-  version |o--o{ sensitvity : "version_id -> version_id"
-  version_path |o--o{ sensitvity : "version_path_id -> version_path_id"
-  version_title |o--o{ sensitvity : "version_title_id -> version_title_id"
+  version_description |o--o{ sensitivity : "version_description_id -> version_description_id"
+  version |o--o{ sensitivity : "version_id -> version_id"
+  version_path |o--o{ sensitivity : "version_path_id -> version_path_id"
+  version_title |o--o{ sensitivity : "version_title_id -> version_title_id"
   consignment ||--o{ consignment_file : "consignment_id -> consignment_id"
   file ||--o{ consignment_file : "file_id -> file_id"
   representation ||--o{ file : "representation_id -> representation_id"
@@ -46,13 +46,13 @@ erDiagram
   version ||--o{ version_path : "version_id -> version_id"
   version ||--o{ version_title : "version_id -> version_id"
 
-  sensitvity {
-    uuid sensitvity_id PK
+  sensitivity {
+    uuid sensitivity_id PK
     uuid version_id FK "-> archive.version.version_id"
     uuid version_title_id FK "-> archive.version_title.version_title_id"
     uuid version_description_id FK "-> archive.version_description.version_description_id"
     uuid version_path_id FK "-> archive.version_path.version_path_id"
-    text sensitvity_code "NOT NULL"
+    text sensitivity_code "NOT NULL"
     text status "NOT NULL"
     date review_date
     timestamptz updated_at "NOT NULL"
@@ -171,7 +171,7 @@ The normalized domain tables are:
 department, series, record, version
 version_title, version_description, version_path
 representation, file, consignment, consignment_file
-sensitvity, metadata_change_event
+sensitivity, metadata_change_event
 ```
 
 Titles, descriptions, and paths have both UUID primary keys and business keys:
@@ -191,7 +191,7 @@ quickly available.
 `archive` contains current operational tables with normal foreign keys. `history`
 contains SCD Type 2 history for every main entity: department, series, record,
 version, title, description, path, representation, file, consignment,
-consignment-file, and sensitvity.
+consignment-file, and sensitivity.
 
 Each history table has:
 
@@ -205,17 +205,17 @@ a replacement history row in one transaction.
 
 ## Closure
 
-There is one `sensitvity` table. It directly targets one version, title,
+There is one `sensitivity` table. It directly targets one version, title,
 description, or path by UUID.
 
 ```text
-sensitvity_code: REDACTED
+sensitivity_code: REDACTED
 status:       active | discontinued
 review_date:  optional date
 ```
 
 Closure is updated like every other entity through an SQS `U` event. The demo
-starts with an active title sensitvity, then changes it to `discontinued`.
+starts with an active title sensitivity, then changes it to `discontinued`.
 
 ## Views
 
@@ -223,14 +223,14 @@ The model has only two joined stakeholder views:
 
 - `current_version_display`: one readable row per version with its default
   title, description, and path.
-- `current_active_sensitvity`: active restrictions only.
+- `current_active_sensitivity`: active restrictions only.
 
 It also has simple `current_*` views for the base tables, for quick inspection:
 
 ```text
 current_department, current_series, current_record, current_version
 current_version_title, current_version_description, current_version_path
-current_representation, current_file, current_consignment, current_sensitvity
+current_representation, current_file, current_consignment, current_sensitivity
 ```
 
 ## Audit
@@ -249,7 +249,7 @@ Create a clean initial state:
 ```
 
 The initial state has one archival hierarchy, title variants, and an active
-`REDACTED` sensitvity on the redacted English title.
+`REDACTED` sensitivity on the redacted English title.
 
 Send the three SQS changes:
 
@@ -261,7 +261,7 @@ The script prints each complete JSON message before sending it. The events:
 
 1. Change the version default title code to `en_r_1`.
 2. Change the `en_r_1` title text.
-3. Change the sensitvity status from `active` to `discontinued`.
+3. Change the sensitivity status from `active` to `discontinued`.
 
 The caller does not supply `changed_at`. Lambda obtains a single
 `clock_timestamp()` value from PostgreSQL while processing each event, then uses
@@ -275,7 +275,7 @@ entity_type = which table and update rules process that key
 ```
 
 UUID values alone do not tell a generic processor whether to apply the change
-to `archive.version`, `archive.version_title`, or `archive.sensitvity`.
+to `archive.version`, `archive.version_title`, or `archive.sensitivity`.
 
 After a few seconds inspect the result:
 
@@ -287,9 +287,9 @@ Expected results:
 
 - `archive.current_version_display` uses the redacted default title.
 - `current_version_title` shows the updated redacted title text.
-- `current_active_sensitvity` is empty because the sensitvity is discontinued.
+- `current_active_sensitivity` is empty because the sensitivity is discontinued.
 - `metadata_change_event` contains all three auditable events.
-- The `history.version`, `history.version_title`, and `history.sensitvity` tables each contain a
+- The `history.version`, `history.version_title`, and `history.sensitivity` tables each contain a
   closed historical row and a current replacement row.
 
 ## Verify The Complete Flow
@@ -307,7 +307,7 @@ It is read-only and shows six pieces of evidence:
 3. Latest Lambda CloudWatch-compatible execution log output.
 4. Current RDS/archive values.
 5. SCD Type 2 history row counts: two rows and one current row for version,
-   redacted title, and sensitvity.
+   redacted title, and sensitivity.
 6. The three processed SQS audit records in `archive.metadata_change_event`.
 
 ## Database Explorer
@@ -325,7 +325,7 @@ Useful stakeholder query:
 
 ```sql
 SELECT * FROM archive.current_version_display;
-SELECT * FROM archive.current_active_sensitvity;
+SELECT * FROM archive.current_active_sensitivity;
 SELECT * FROM archive.metadata_change_event ORDER BY processed_at;
 
 -- Direct SCD Type 2 history examples
@@ -338,7 +338,7 @@ FROM history.version_title
 WHERE version_title_id = '10000000-0000-4000-8000-000000000013'
 ORDER BY valid_from;
 
-SELECT sensitvity_id, status, valid_from, valid_to, is_current
-FROM history.sensitvity
+SELECT sensitivity_id, status, valid_from, valid_to, is_current
+FROM history.sensitivity
 ORDER BY valid_from;
 ```
