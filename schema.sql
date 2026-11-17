@@ -98,14 +98,6 @@ CREATE TABLE archive.consignment (
   updated_at timestamptz NOT NULL
 );
 
-CREATE TABLE archive.consignment_file (
-  consignment_file_id uuid PRIMARY KEY,
-  consignment_id uuid NOT NULL REFERENCES archive.consignment,
-  file_id uuid NOT NULL REFERENCES archive.file,
-  updated_at timestamptz NOT NULL,
-  UNIQUE (consignment_id, file_id)
-);
-
 CREATE TABLE archive.sensitvity (
   sensitvity_id uuid PRIMARY KEY,
   version_id uuid REFERENCES archive.version,
@@ -313,21 +305,6 @@ CREATE TABLE history.consignment (
   source_event_id uuid UNIQUE NOT NULL
 );
 
-CREATE TABLE history.consignment_file (
-  history_id uuid PRIMARY KEY,
-  consignment_file_id uuid NOT NULL REFERENCES archive.consignment_file,
-  consignment_id uuid NOT NULL REFERENCES archive.consignment,
-  file_id uuid NOT NULL REFERENCES archive.file,
-  valid_from timestamptz NOT NULL,
-  valid_to timestamptz,
-  is_current boolean NOT NULL,
-  changed_at timestamptz NOT NULL,
-  changed_by_id text NOT NULL,
-  changed_by_name text,
-  change_reason text NOT NULL,
-  source_event_id uuid UNIQUE NOT NULL
-);
-
 CREATE TABLE history.sensitvity (
   history_id uuid PRIMARY KEY,
   sensitvity_id uuid NOT NULL REFERENCES archive.sensitvity,
@@ -500,16 +477,6 @@ VALUES
     '2026-11-09',
     'Digital Archive',
     'Initial demo',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.consignment_file
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000012',
-    '10000000-0000-4000-8000-000000000011',
-    '10000000-0000-4000-8000-000000000010',
     '2026-11-09'
   );
 
@@ -724,24 +691,6 @@ SELECT
   gen_random_uuid ()
 FROM
   archive.consignment;
-
-INSERT INTO
-  history.consignment_file
-SELECT
-  gen_random_uuid (),
-  consignment_file_id,
-  consignment_id,
-  file_id,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.consignment_file;
 
 INSERT INTO
   history.sensitvity
