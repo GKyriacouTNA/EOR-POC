@@ -18,17 +18,17 @@
     "change_type": "U",
     "changes": { "title_text": "Demonstration record: redacted title" },
     "changed_by": { "id": "archivist.1", "name": "Archivist One" },
-    "reason": "Apply approved redacted title following cataloguing review",
+    "reason": "Apply approved redacted title following cataloguing investigation",
     "source": "archival-demo"
   },
   {
     "event_id": "33333333-cccc-4ccc-8ccc-cccccccccccc",
-    "entity_type": "closure",
-    "entity_key": { "closure_id": "10000000-0000-4000-8000-000000000014" },
+    "entity_type": "sensitivity",
+    "entity_key": { "sensitivity_id": "10000000-0000-4000-8000-000000000014" },
     "change_type": "U",
-    "changes": { "status": "discontinued" },
-    "changed_by": { "id": "closure.officer", "name": "Closure Officer" },
-    "reason": "Closure review complete; title is now open",
+    "changes": { "sensitivity_status": "cancelled","investigation_date":"2026-11-18","investigation_outcome":"open" },
+    "changed_by": { "id": "sensitivity.officer", "name": "Closure Officer" },
+    "reason": "Closure investigation complete; title is now open",
     "source": "archival-demo"
   }
 ]
