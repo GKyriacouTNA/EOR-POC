@@ -31,12 +31,12 @@ CREATE TABLE archive.record (
 CREATE TABLE archive.version (
   version_id uuid PRIMARY KEY,
   record_id uuid NOT NULL REFERENCES archive.record,
-  version_number integer NOT NULL,
+  version_code text NOT NULL,
   default_title_code text,
   default_description_code text,
   default_path_code text,
   updated_at timestamptz NOT NULL,
-  UNIQUE (record_id, version_number)
+  UNIQUE (record_id, version_code)
 );
 
 CREATE TABLE archive.version_title (
@@ -80,15 +80,6 @@ CREATE TABLE archive.representation (
   UNIQUE (version_id, representation_code)
 );
 
-CREATE TABLE archive.file (
-  file_id uuid PRIMARY KEY,
-  representation_id uuid NOT NULL REFERENCES archive.representation,
-  file_name text NOT NULL,
-  relative_path text NOT NULL,
-  updated_at timestamptz NOT NULL,
-  UNIQUE (representation_id, relative_path)
-);
-
 CREATE TABLE archive.consignment (
   consignment_id uuid PRIMARY KEY,
   consignment_reference text UNIQUE NOT NULL,
@@ -98,21 +89,50 @@ CREATE TABLE archive.consignment (
   updated_at timestamptz NOT NULL
 );
 
+CREATE TABLE archive.file (
+  file_id uuid PRIMARY KEY,
+  representation_id uuid NOT NULL REFERENCES archive.representation,
+  consignment_id uuid NOT NULL REFERENCES archive.consignment,
+  file_name text NOT NULL,
+  relative_path text NOT NULL,
+  updated_at timestamptz NOT NULL,
+  UNIQUE (representation_id, relative_path)
+);
+
 CREATE TABLE archive.sensitivity (
   sensitivity_id uuid PRIMARY KEY,
   version_id uuid REFERENCES archive.version,
   version_title_id uuid REFERENCES archive.version_title,
   version_description_id uuid REFERENCES archive.version_description,
   version_path_id uuid REFERENCES archive.version_path,
-  sensitivity_type text NOT NULL CHECK (sensitivity_type in ('FOIA','AUR','Retained','not crown copyright','commercial','do not publish')), 
+  sensitivity_type text NOT NULL CHECK (
+    sensitivity_type in (
+      'FOIA',
+      'AUR',
+      'Retained',
+      'not crown copyright',
+      'commercial',
+      'do not publish'
+    )
+  ),
   sensitivity_type_code text,
-  sensitivity_status text NOT NULL CHECK (sensitivity_status IN ('active', 'lapsed','under review','superceeded','cancelled')),
+  sensitivity_status text NOT NULL CHECK (
+    sensitivity_status IN (
+      'active',
+      'lapsed',
+      'under investigation',
+      'superceeded',
+      'cancelled'
+    )
+  ),
   sensitivity_start date,
   sensitivity_period text,
-  sensitivity_rule text NOT NULL CHECK (sensitivity_rule IN ('JAN_AFTER_PERIOD','EXACT_PERIOD','MANUAL')),
+  sensitivity_rule text NOT NULL CHECK (
+    sensitivity_rule IN ('JAN_AFTER_PERIOD', 'EXACT_PERIOD', 'MANUAL')
+  ),
   sensitivity_end date,
-  review_date date,
-  review_outcome text,
+  investigation_date date,
+  investigation_outcome text CHECK (investigation_outcome IN ('open', 'close')),
   schedule_reference text,
   archivist_note text,
   updated_at timestamptz NOT NULL,
@@ -197,7 +217,7 @@ CREATE TABLE history.version (
   history_id uuid PRIMARY KEY,
   version_id uuid NOT NULL REFERENCES archive.version,
   record_id uuid NOT NULL REFERENCES archive.record,
-  version_number integer NOT NULL,
+  version_code text NOT NULL,
   default_title_code text,
   default_description_code text,
   default_path_code text,
@@ -280,22 +300,6 @@ CREATE TABLE history.representation (
   source_event_id uuid UNIQUE NOT NULL
 );
 
-CREATE TABLE history.file (
-  history_id uuid PRIMARY KEY,
-  file_id uuid NOT NULL REFERENCES archive.file,
-  representation_id uuid NOT NULL REFERENCES archive.representation,
-  file_name text NOT NULL,
-  relative_path text NOT NULL,
-  valid_from timestamptz NOT NULL,
-  valid_to timestamptz,
-  is_current boolean NOT NULL,
-  changed_at timestamptz NOT NULL,
-  changed_by_id text NOT NULL,
-  changed_by_name text,
-  change_reason text NOT NULL,
-  source_event_id uuid UNIQUE NOT NULL
-);
-
 CREATE TABLE history.consignment (
   history_id uuid PRIMARY KEY,
   consignment_id uuid NOT NULL REFERENCES archive.consignment,
@@ -313,6 +317,23 @@ CREATE TABLE history.consignment (
   source_event_id uuid UNIQUE NOT NULL
 );
 
+CREATE TABLE history.file (
+  history_id uuid PRIMARY KEY,
+  file_id uuid NOT NULL REFERENCES archive.file,
+  representation_id uuid NOT NULL REFERENCES archive.representation,
+  consignment_id uuid NOT NULL REFERENCES archive.consignment,
+  file_name text NOT NULL,
+  relative_path text NOT NULL,
+  valid_from timestamptz NOT NULL,
+  valid_to timestamptz,
+  is_current boolean NOT NULL,
+  changed_at timestamptz NOT NULL,
+  changed_by_id text NOT NULL,
+  changed_by_name text,
+  change_reason text NOT NULL,
+  source_event_id uuid UNIQUE NOT NULL
+);
+
 CREATE TABLE history.sensitivity (
   history_id uuid PRIMARY KEY,
   sensitivity_id uuid NOT NULL REFERENCES archive.sensitivity,
@@ -320,15 +341,34 @@ CREATE TABLE history.sensitivity (
   version_title_id uuid REFERENCES archive.version_title,
   version_description_id uuid REFERENCES archive.version_description,
   version_path_id uuid REFERENCES archive.version_path,
-  sensitivity_type text NOT NULL CHECK (sensitivity_type in ('FOIA','AUR','Retained','not crown copyright','commercial','do not publish')), 
+  sensitivity_type text NOT NULL CHECK (
+    sensitivity_type in (
+      'FOIA',
+      'AUR',
+      'Retained',
+      'not crown copyright',
+      'commercial',
+      'do not publish'
+    )
+  ),
   sensitivity_type_code text,
-  sensitivity_status text NOT NULL CHECK (sensitivity_status IN ('active', 'lapsed','under review','superceeded','cancelled')),
+  sensitivity_status text NOT NULL CHECK (
+    sensitivity_status IN (
+      'active',
+      'lapsed',
+      'under investigation',
+      'superceeded',
+      'cancelled'
+    )
+  ),
   sensitivity_start date,
   sensitivity_period text,
-  sensitivity_rule text NOT NULL CHECK (sensitivity_rule IN ('JAN_AFTER_PERIOD','EXACT_PERIOD','MANUAL')),
+  sensitivity_rule text NOT NULL CHECK (
+    sensitivity_rule IN ('JAN_AFTER_PERIOD', 'EXACT_PERIOD', 'MANUAL')
+  ),
   sensitivity_end date,
-  review_date date,
-  review_outcome text,
+  investigation_date date,
+  investigation_outcome text CHECK (investigation_outcome IN ('open', 'close')),
   schedule_reference text,
   archivist_note text,
   valid_from timestamptz NOT NULL,
@@ -347,7 +387,7 @@ SELECT
   d.department_code,
   s.series_code,
   r.record_reference,
-  v.version_number,
+  v.version_code,
   t.title_text AS default_title,
   ds.description_text AS default_description,
   p.path_value AS default_path
@@ -369,380 +409,4 @@ SELECT
 FROM
   archive.sensitivity
 WHERE
-  sensitivity_status in ('active','under review');
-
-INSERT INTO
-  archive.department
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000001',
-    'DA',
-    'Digital Archive',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.series
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000002',
-    '10000000-0000-4000-8000-000000000001',
-    'S1',
-    'Demonstration series',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.record
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000003',
-    '10000000-0000-4000-8000-000000000002',
-    'REC-001',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.version
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000006',
-    '10000000-0000-4000-8000-000000000003',
-    1,
-    'en_1',
-    'en_1',
-    'master_1',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.version_title
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000005',
-    '10000000-0000-4000-8000-000000000006',
-    'en_1',
-    'Demonstration record',
-    'en',
-    'original',
-    '2026-11-09'
-  ),
-  (
-    '10000000-0000-4000-8000-000000000013',
-    '10000000-0000-4000-8000-000000000006',
-    'en_r_1',
-    'Demonstration record',
-    'en',
-    'redacted',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.version_description
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000007',
-    '10000000-0000-4000-8000-000000000006',
-    'en_1',
-    'Original English description',
-    'en',
-    'original',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.version_path
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000008',
-    '10000000-0000-4000-8000-000000000006',
-    'master_1',
-    's3://archive/REC-001/master',
-    'representation_root',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.representation
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000009',
-    '10000000-0000-4000-8000-000000000006',
-    'preservation_1',
-    'preservation',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.file
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000010',
-    '10000000-0000-4000-8000-000000000009',
-    'REC-001.pdf',
-    'REC-001.pdf',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.consignment
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000011',
-    'CONS-001',
-    '2026-11-09',
-    'Digital Archive',
-    'Initial demo',
-    '2026-11-09'
-  );
-
-INSERT INTO
-  archive.sensitivity
-VALUES
-  (
-    '10000000-0000-4000-8000-000000000014',
-    NULL,
-    '10000000-0000-4000-8000-000000000013',
-    NULL,
-    NULL,
-    'FOIA',
-    '40(2)',
-    'active',
-    '2026-02-01',
-    'P2Y5M',
-    'JAN_AFTER_PERIOD',
-    '2029-01-01',
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    '2026-11-09'
-  );
-
--- Initial history snapshots are inserted for every current operational entity.
-INSERT INTO
-  history.department
-SELECT
-  gen_random_uuid (),
-  department_id,
-  department_code,
-  name,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.department;
-
-INSERT INTO
-  history.series
-SELECT
-  gen_random_uuid (),
-  series_id,
-  department_id,
-  series_code,
-  name,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.series;
-
-INSERT INTO
-  history.record
-SELECT
-  gen_random_uuid (),
-  record_id,
-  series_id,
-  record_reference,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.record;
-
-INSERT INTO
-  history.version
-SELECT
-  gen_random_uuid (),
-  version_id,
-  record_id,
-  version_number,
-  default_title_code,
-  default_description_code,
-  default_path_code,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.version;
-
-INSERT INTO
-  history.version_title
-SELECT
-  gen_random_uuid (),
-  version_title_id,
-  version_id,
-  title_code,
-  title_text,
-  language_code,
-  variant_code,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.version_title;
-
-INSERT INTO
-  history.version_description
-SELECT
-  gen_random_uuid (),
-  version_description_id,
-  version_id,
-  description_code,
-  description_text,
-  language_code,
-  variant_code,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.version_description;
-
-INSERT INTO
-  history.version_path
-SELECT
-  gen_random_uuid (),
-  version_path_id,
-  version_id,
-  path_code,
-  path_value,
-  path_type,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.version_path;
-
-INSERT INTO
-  history.representation
-SELECT
-  gen_random_uuid (),
-  representation_id,
-  version_id,
-  representation_code,
-  representation_type,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.representation;
-
-INSERT INTO
-  history.file
-SELECT
-  gen_random_uuid (),
-  file_id,
-  representation_id,
-  file_name,
-  relative_path,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.file;
-
-INSERT INTO
-  history.consignment
-SELECT
-  gen_random_uuid (),
-  consignment_id,
-  consignment_reference,
-  received_at,
-  source_organisation,
-  notes,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'seed',
-  'Seed',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.consignment;
-
-INSERT INTO
-  history.sensitivity
-SELECT
-  gen_random_uuid (),
-  sensitivity_id,
-  version_id,
-  version_title_id,
-  version_description_id,
-  version_path_id,
-  sensitivity_type,
-  sensitivity_type_code,
-  sensitivity_status,
-  sensitivity_start,
-  sensitivity_period,
-  sensitivity_rule,
-  sensitivity_end,
-  review_date,
-  review_outcome,
-  schedule_reference,
-  archivist_note,
-  '2026-11-09',
-  NULL,
-  true,
-  '2026-11-09',
-  'sensitivity.officer',
-  'Closure Officer',
-  'Initial',
-  gen_random_uuid ()
-FROM
-  archive.sensitivity;
+  sensitivity_status in ('active', 'under investigation');
