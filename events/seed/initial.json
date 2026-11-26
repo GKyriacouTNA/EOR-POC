@@ -1,64 +1,81 @@
 [
   {
-    "event_id": "00000000-0000-4000-8000-000000000101",
     "entity_type": "department",
-    "entity_key": { "department_id": "10000000-0000-4000-8000-000000000001" },
+    "entity_key": {
+      "department_id": "10000000-0000-4000-8000-000000000001"
+    },
     "change_type": "I",
     "changes": {
       "department_code": "DA",
       "name": "Digital Archive"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000102",
     "entity_type": "series",
-    "entity_key": { "series_id": "10000000-0000-4000-8000-000000000002" },
+    "entity_key": {
+      "series_id": "10000000-0000-4000-8000-000000000002"
+    },
     "change_type": "I",
     "changes": {
       "department_id": "10000000-0000-4000-8000-000000000001",
       "series_code": "S1",
       "name": "Demonstration series"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000103",
     "entity_type": "record",
-    "entity_key": { "record_id": "10000000-0000-4000-8000-000000000003" },
+    "entity_key": {
+      "record_id": "10000000-0000-4000-8000-000000000003"
+    },
     "change_type": "I",
     "changes": {
       "series_id": "10000000-0000-4000-8000-000000000002",
       "record_reference": "REC-001"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000104",
     "entity_type": "version",
-    "entity_key": { "version_id": "10000000-0000-4000-8000-000000000006" },
+    "entity_key": {
+      "version_id": "10000000-0000-4000-8000-000000000006"
+    },
     "change_type": "I",
     "changes": {
       "record_id": "10000000-0000-4000-8000-000000000003",
-      "version_code": "en_r_1",
+      "version_code": "en_1",
       "default_title_code": "en_1",
       "default_description_code": "en_1",
       "default_path_code": "master_1"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000105",
     "entity_type": "version_title",
-    "entity_key": { "version_title_id": "10000000-0000-4000-8000-000000000005" },
+    "entity_key": {
+      "version_title_id": "10000000-0000-4000-8000-000000000005"
+    },
     "change_type": "I",
     "changes": {
       "version_id": "10000000-0000-4000-8000-000000000006",
@@ -67,14 +84,18 @@
       "language_code": "en",
       "variant_code": "original"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000106",
     "entity_type": "version_title",
-    "entity_key": { "version_title_id": "10000000-0000-4000-8000-000000000013" },
+    "entity_key": {
+      "version_title_id": "10000000-0000-4000-8000-000000000013"
+    },
     "change_type": "I",
     "changes": {
       "version_id": "10000000-0000-4000-8000-000000000006",
@@ -83,14 +104,18 @@
       "language_code": "en",
       "variant_code": "redacted"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000107",
     "entity_type": "version_description",
-    "entity_key": { "version_description_id": "10000000-0000-4000-8000-000000000007" },
+    "entity_key": {
+      "version_description_id": "10000000-0000-4000-8000-000000000007"
+    },
     "change_type": "I",
     "changes": {
       "version_id": "10000000-0000-4000-8000-000000000006",
@@ -99,14 +124,18 @@
       "language_code": "en",
       "variant_code": "original"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000108",
     "entity_type": "version_path",
-    "entity_key": { "version_path_id": "10000000-0000-4000-8000-000000000008" },
+    "entity_key": {
+      "version_path_id": "10000000-0000-4000-8000-000000000008"
+    },
     "change_type": "I",
     "changes": {
       "version_id": "10000000-0000-4000-8000-000000000006",
@@ -114,28 +143,36 @@
       "path_value": "s3://archive/REC-001/master",
       "path_type": "representation_root"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000109",
     "entity_type": "representation",
-    "entity_key": { "representation_id": "10000000-0000-4000-8000-000000000009" },
+    "entity_key": {
+      "representation_id": "10000000-0000-4000-8000-000000000009"
+    },
     "change_type": "I",
     "changes": {
       "version_id": "10000000-0000-4000-8000-000000000006",
       "representation_code": "preservation_1",
       "representation_type": "preservation"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000111",
     "entity_type": "consignment",
-    "entity_key": { "consignment_id": "10000000-0000-4000-8000-000000000011" },
+    "entity_key": {
+      "consignment_id": "10000000-0000-4000-8000-000000000011"
+    },
     "change_type": "I",
     "changes": {
       "consignment_reference": "CONS-001",
@@ -143,29 +180,37 @@
       "source_organisation": "Digital Archive",
       "notes": "Initial demo"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000110",
     "entity_type": "file",
-    "entity_key": { "file_id": "10000000-0000-4000-8000-000000000010" },
+    "entity_key": {
+      "file_id": "10000000-0000-4000-8000-000000000010"
+    },
     "change_type": "I",
     "changes": {
       "representation_id": "10000000-0000-4000-8000-000000000009",
-      "consignment_id": "10000000-0000-4000-8000-000000000011", 
+      "consignment_id": "10000000-0000-4000-8000-000000000011",
       "file_name": "REC-001.pdf",
       "relative_path": "REC-001.pdf"
     },
-    "changed_by": { "id": "seed", "name": "Seed" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial archive graph",
     "source": "seed"
   },
   {
-    "event_id": "00000000-0000-4000-8000-000000000112",
     "entity_type": "sensitivity",
-    "entity_key": { "sensitivity_id": "10000000-0000-4000-8000-000000000014" },
+    "entity_key": {
+      "sensitivity_id": "10000000-0000-4000-8000-000000000014"
+    },
     "change_type": "I",
     "changes": {
       "version_id": null,
@@ -174,17 +219,20 @@
       "version_path_id": null,
       "sensitivity_type": "FOIA",
       "sensitivity_type_code": "40(2)",
-      "sensitivity_status": "under investigation",
+      "sensitivity_status": "internal_review",
       "sensitivity_start": "2026-02-01",
       "sensitivity_period": "P2Y5M",
       "sensitivity_rule": "JAN_AFTER_PERIOD",
-      "investigation_date": null,
-      "investigation_outcome": null,
+      "review_date": null,
+      "review_outcome": null,
       "schedule_reference": null,
-      "archivist_note": null
+      "archivist_note": "Initial redacted-title sensitivity"
     },
-    "changed_by": { "id": "sensitivity.officer", "name": "Closure Officer" },
-    "reason": "Initial seed",
+    "changed_by": {
+      "id": "seed",
+      "name": "Seed"
+    },
+    "reason": "Seed initial sensitivity",
     "source": "seed"
   }
 ]

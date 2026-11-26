@@ -6,27 +6,45 @@ Local proof of concept for archival metadata changes sent as JSON through SQS, p
 JSON event -> SQS -> Lambda -> PostgreSQL
 ```
 
+## Project structure
+
+| Path                                  | Purpose                                                        |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `compose.yaml`                        | Local Floci container with Lambda hot-reload.                  |
+| `schema.sql`                          | DDL-only PostgreSQL schema (`archive`, `history`, views).      |
+| `events/`                             | Curated fixtures: `seed/`, `lifecycle/`, `bulk/`, `demos/`.    |
+| `lambda/handler.py`                   | Metadata change processor (SCD2, audit, batch, `entity_keys`). |
+| `lambda/expiry_checker.py`            | Manual sensitivity expiry checker.                             |
+| `scripts/demo-initial-state.sh`       | Build infra only (no data).                                    |
+| `scripts/reset-demo-data.sh`          | Fast data reset: truncate data, reseed base data.              |
+| `scripts/demo-lifecycle.sh`           | Lifecycle demo (resets data by default).                       |
+| `scripts/demo-batching.sh`            | Batch/multi-id demo (resets data by default).                  |
+| `scripts/demo-expiry.sh`              | Expiry demo (resets data by default).                          |
+| `scripts/demo-sqs.sh`                 | SQS async demo (resets data by default).                       |
+| `scripts/send-events.sh`              | Generic event sender.                                          |
+| `scripts/check-sensitivity-expiry.sh` | Manual expiry checker.                                         |
+
 ## Data model
 
 ### Entity model
 
 ```mermaid
 erDiagram
-  consignment ||--o{ file : "consignment_id -> consignment_id"
-  representation ||--o{ file : "representation_id -> representation_id"
-  series ||--o{ record : "series_id -> series_id"
-  version ||--o{ representation : "version_id -> version_id"
-  version_description |o--o{ sensitivity : "version_description_id -> version_description_id"
-  version |o--o{ sensitivity : "version_id -> version_id"
-  version_path |o--o{ sensitivity : "version_path_id -> version_path_id"
-  version_title |o--o{ sensitivity : "version_title_id -> version_title_id"
-  department ||--o{ series : "department_id -> department_id"
-  record ||--o{ version : "record_id -> record_id"
-  version ||--o{ version_description : "version_id -> version_id"
-  version ||--o{ version_path : "version_id -> version_id"
-  version ||--o{ version_title : "version_id -> version_id"
+  "consignment" ||..o{ "file" : "consignment_id -> consignment_id"
+  "representation" ||..o{ "file" : "representation_id -> representation_id"
+  "series" ||..o{ "record" : "series_id -> series_id"
+  "version" ||..o{ "representation" : "version_id -> version_id"
+  "version_description" |o..o{ "sensitivity" : "version_description_id -> version_description_id"
+  "version" |o..o{ "sensitivity" : "version_id -> version_id"
+  "version_path" |o..o{ "sensitivity" : "version_path_id -> version_path_id"
+  "version_title" |o..o{ "sensitivity" : "version_title_id -> version_title_id"
+  "department" ||..o{ "series" : "department_id -> department_id"
+  "record" ||..o{ "version" : "record_id -> record_id"
+  "version" ||..o{ "version_description" : "version_id -> version_id"
+  "version" ||..o{ "version_path" : "version_id -> version_id"
+  "version" ||..o{ "version_title" : "version_id -> version_id"
 
-  consignment {
+  "consignment" {
     uuid consignment_id PK
     text consignment_reference UK "NOT NULL"
     timestamptz received_at "NOT NULL"
@@ -34,22 +52,23 @@ erDiagram
     text notes
     timestamptz updated_at "NOT NULL"
   }
-  department {
+  "department" {
     uuid department_id PK
     text department_code UK "NOT NULL"
     text name "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  file {
+  "file" {
     uuid file_id PK
     uuid representation_id FK "NOT NULL -> archive.representation.representation_id"
     uuid consignment_id FK "NOT NULL -> archive.consignment.consignment_id"
     text file_name "NOT NULL"
-    text relative_path UK "NOT NULL"
+    text relative_path "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  metadata_change_event {
+  "metadata_change_event" {
     uuid metadata_change_event_id PK
+    uuid event_group_id "NOT NULL"
     uuid source_event_id UK "NOT NULL"
     text entity_type "NOT NULL"
     uuid entity_id
@@ -68,20 +87,20 @@ erDiagram
     text source_system "NOT NULL"
     text error_message
   }
-  record {
+  "record" {
     uuid record_id PK
     uuid series_id FK "NOT NULL -> archive.series.series_id"
-    text record_reference UK "NOT NULL"
+    text record_reference "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  representation {
+  "representation" {
     uuid representation_id PK
     uuid version_id FK "NOT NULL -> archive.version.version_id"
-    text representation_code UK "NOT NULL"
+    text representation_code "NOT NULL"
     text representation_type "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  sensitivity {
+  "sensitivity" {
     uuid sensitivity_id PK
     uuid version_id FK "-> archive.version.version_id"
     uuid version_title_id FK "-> archive.version_title.version_title_id"
@@ -94,49 +113,49 @@ erDiagram
     text sensitivity_period
     text sensitivity_rule "NOT NULL"
     date sensitivity_end
-    date investigation_date
-    text investigation_outcome
+    date review_date
+    text review_outcome
     text schedule_reference
     text archivist_note
     timestamptz updated_at "NOT NULL"
   }
-  series {
+  "series" {
     uuid series_id PK
     uuid department_id FK "NOT NULL -> archive.department.department_id"
-    text series_code UK "NOT NULL"
+    text series_code "NOT NULL"
     text name "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  version {
+  "version" {
     uuid version_id PK
     uuid record_id FK "NOT NULL -> archive.record.record_id"
-    text version_code UK "NOT NULL"
+    text version_code "NOT NULL"
     text default_title_code
     text default_description_code
     text default_path_code
     timestamptz updated_at "NOT NULL"
   }
-  version_description {
+  "version_description" {
     uuid version_description_id PK
     uuid version_id FK "NOT NULL -> archive.version.version_id"
-    text description_code UK "NOT NULL"
+    text description_code "NOT NULL"
     text description_text "NOT NULL"
     text language_code "NOT NULL"
     text variant_code "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  version_path {
+  "version_path" {
     uuid version_path_id PK
     uuid version_id FK "NOT NULL -> archive.version.version_id"
-    text path_code UK "NOT NULL"
+    text path_code "NOT NULL"
     text path_value "NOT NULL"
     text path_type "NOT NULL"
     timestamptz updated_at "NOT NULL"
   }
-  version_title {
+  "version_title" {
     uuid version_title_id PK
     uuid version_id FK "NOT NULL -> archive.version.version_id"
-    text title_code UK "NOT NULL"
+    text title_code "NOT NULL"
     text title_text "NOT NULL"
     text language_code "NOT NULL"
     text variant_code "NOT NULL"
@@ -177,30 +196,34 @@ An update is applied in one transaction: the current `archive` row is updated, t
 
 ### Sensitivity
 
-`sensitivity` targets exactly one of: `version_id`, `version_title_id`, `version_description_id`, or `version_path_id` (enforced by a check constraint).
+`sensitivity` targets exactly one of: `version_id`, `version_title_id`, `version_description_id`, or `version_path_id` (enforced by a check constraint). Stored fields are source of truth; exposure is derived (not writable).
 
 Key fields include:
 
-- `sensitivity_type` / `sensitivity_type_code`
-- `sensitivity_status` (`active`, `lapsed`, `under investigation`, `superceeded`, `cancelled`)
+- `sensitivity_type` / `sensitivity_type_code` (`FOIA`, `AUR`, `Retained`, `not crown copyright`, `commercial`, `do not publish`)
+- `sensitivity_status` (`active`, `internal_review`, `advisory_council_review`, `superceeded`, `cancelled`, `expired`) - restricting: `active|internal_review|advisory_council_review`; non-restricting: `expired|cancelled|superceeded`
 - `sensitivity_start`, `sensitivity_period`, `sensitivity_rule` (`JAN_AFTER_PERIOD`, `EXACT_PERIOD`, `MANUAL`), `sensitivity_end`
-- investigation fields (`investigation_date`, `investigation_outcome`)
+- review fields (`review_date`, `review_outcome`) - while under `internal_review`/`advisory_council_review`, keep `null`; set on next outcome status (`active`/`cancelled`)
 - `schedule_reference`, `archivist_note`
 
-For non-`MANUAL` rules, Lambda computes `sensitivity_end` from the start/period/rule; for `MANUAL`, an explicit `sensitivity_end` is required/supplied according to the rules in `lambda/handler.py`. Sensitivity changes are applied like other entities via SQS events and recorded in history/audit.
+For non-`MANUAL` rules, Lambda computes `sensitivity_end` from start+period+rule (if derived date is exactly `YYYY-01-01`, `JAN_AFTER_PERIOD` moves to `YYYY+1-01-01`). Events must not supply `sensitivity_end` for automatic rules. For `MANUAL` (or changing to `MANUAL`), events must explicitly supply `sensitivity_end` (`date` or `null`).
+
+Derived exposure is shown only in `archive.current_version_display.sensitivity_exposure` (version scope, existing `version/title/description/path` targets only): `OPEN` = no restricting sensitivities; `PARTIALLY_OPEN` = restricting + >=1 unrestricted sibling target; `CLOSED` = restricting and no unrestricted sibling target. `do not publish` is restricting when active/internal_review/advisory_council_review (derived `CLOSED` by current PoC decision).
+
+Manual expiry checker (no cron): `./scripts/check-sensitivity-expiry.sh` finds active sensitivities past `sensitivity_end` and emits deterministic idempotent events setting `sensitivity_status='expired'`. See `SENSITIVITY_LIFECYCLE.md` and `events/`.
 
 ### Views
 
 Defined in `schema.sql`:
 
-- `archive.current_version_display`: one readable row per version with resolved default title, description, and path.
-- `archive.current_active_sensitivity`: sensitivity rows currently considered active for filtering (`sensitivity_status` in `active` or `under investigation`).
+- `archive.current_version_display`: one readable row per version with resolved default title/description/path and derived `sensitivity_exposure` (`OPEN|PARTIALLY_OPEN|CLOSED`).
+- `archive.current_active_sensitivity`: sensitivity rows currently considered active for filtering (`sensitivity_status` in `active`, `internal_review`, or `advisory_council_review`).
 
 Other current-state inspection is done directly against `archive.*` tables.
 
 ### Audit
 
-Every accepted event is written to `archive.metadata_change_event`, including entity key/type/ID, change type, outcome, processing status, changed fields, raw JSON payload, actor/reason/source, and timestamps (`changed_at`, `received_at`, `processed_at`). `source_event_id` is unique to support idempotent processing.
+Every accepted event is written to `archive.metadata_change_event`, including entity key/type/ID, change type, outcome, processing status, changes, raw JSON payload, actor/reason/source, timestamps, and `event_group_id`. Lambda returns `event_group_id` for quick audit lookup; `source_event_id` is Lambda-generated, deterministic, and unique for idempotent processing.
 
 ## Infrastructure
 
@@ -264,79 +287,32 @@ The demo scripts source this file automatically. Key values:
 | `AWS_DEFAULT_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Dummy/local AWS config for CLI                            |
 | `LOCAL_RDS_*`                                                      | Local RDS instance/database/user/password used by scripts |
 
-### 1. Create a clean initial state
+### 1. Build infrastructure (once)
 
 ```bash
 ./scripts/demo-initial-state.sh
 ```
 
-This script:
+Resets Floci/RDS, applies `schema.sql`, creates Lambdas/SQS mapping. No data seeded.
 
-1. Removes previous demo state (Compose/Floci state and labelled local RDS data/volumes).
-2. Starts Floci (`compose.yaml`).
-3. Creates SQS queues (`metadata-change-events`, `metadata-change-dlq`) with redrive policy.
-4. Creates the local RDS PostgreSQL instance and waits for it to become available.
-5. Applies `schema.sql`.
-6. Installs Lambda runtime dependencies into `lambda/vendor`.
-7. Creates the `metadata-change-processor` Lambda (hot-reload from `lambda/`).
-8. Seeds initial data by invoking the Lambda once per event in `initial_event.json`.
-9. Creates the SQS -> Lambda event-source mapping.
+### 2. Run curated demos
 
-### 2. Inspect the initial state
+Each demo resets DB data by default (truncate data + seed base data), no container rebuild, and is self-explanatory: prints exact JSON, invokes/sends it, shows focused DB tables, pauses between stages.
 
 ```bash
-./scripts/show-archival-demo.sh
+./scripts/demo-lifecycle.sh   # sensitivity lifecycle: review/ACR/release/AUR+DNP, exposure, SCD2
+./scripts/demo-batching.sh    # batch wrapper + entity_keys same-change, audit/row evidence
+./scripts/demo-expiry.sh      # past-end active sensitivity, manual expiry checker, idempotent rerun
+./scripts/demo-sqs.sh         # async SQS -> Lambda mapping, queue attrs, resulting DB state
 ```
 
-The seeded state includes the archival hierarchy (department/series/record/version), title/description/path variants, representation, consignment, file, and an initial sensitivity record.
+Add `--no-reset` to keep current DB state. `./scripts/reset-demo-data.sh` does data-only reset. `./scripts/send-events.sh <file> [lambda|sqs]` for ad-hoc files.
 
-### 3. Send demo change events
+### Event payload notes
 
-```bash
-./scripts/demo-send-three-changes.sh
-```
-
-The script prints each JSON message from `events.json` before sending it to SQS:
-
-1. Update the version’s `default_title_code` to `en_r_1`.
-2. Update the `en_r_1` title text.
-3. Update sensitivity (status/investigation fields) for the seeded sensitivity record.
-
-Notes:
-
-- The caller does not supply `changed_at`. Lambda obtains a single `clock_timestamp()` from PostgreSQL per event and applies it consistently to the current row, history row, and audit record.
-- `entity_type` is required alongside `entity_key` so the processor knows which table/rules apply to the keyed entity.
-
-### 4. Inspect results
-
-Wait a few seconds for asynchronous processing, then:
-
-```bash
-./scripts/show-archival-demo.sh
-```
-
-Expected outcomes (for the provided demo events):
-
-- `archive.current_version_display` reflects the redacted/default title selection and updated text.
-- `archive.current_active_sensitivity` is empty after the sensitivity status change moves it out of active/under-investigation states.
-- `archive.version_title` shows the updated redacted title text.
-- `history.version`, `history.version_title`, and `history.sensitivity` contain closed prior rows and current replacement rows.
-- `archive.metadata_change_event` contains the processed SQS events with payload, outcome, and processing metadata.
-
-### 5. Verify the complete flow
-
-```bash
-./scripts/verify-demo-flow.sh
-```
-
-Read-only checks/evidence:
-
-1. Enabled SQS-to-Lambda event-source mapping.
-2. Main queue and DLQ state (empty after successful demo processing).
-3. Latest Lambda log stream/output.
-4. Current RDS/archive values.
-5. SCD Type 2 history counts for version, redacted title, and sensitivity.
-6. Processed audit records in `archive.metadata_change_event`.
+- Caller does not supply `changed_at`; Lambda uses a single DB `clock_timestamp()` per event for current/history/audit.
+- `entity_type` is required with `entity_key`/`entity_keys`. Do not send `event_id`; Lambda returns `event_group_id` for audit lookup and generates deterministic `source_event_id` values for idempotency.
+- Bulk: `{"events":[...]}` runs in one invocation/connection with per-event commit and one `event_group_id`. `entity_keys:[...]` expands one logical change to deterministic per-target events (same `event_group_id`, different `source_event_id`). SQS `Records` contract unchanged.
 
 ### Database explorer
 

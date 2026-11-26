@@ -1,4 +1,5 @@
 import datetime
+import copy
 import json
 import os
 import re
@@ -55,8 +56,8 @@ ENTITY_FIELDS = {
         "sensitivity_period",
         "sensitivity_rule",
         "sensitivity_end",
-        "investigation_date",
-        "investigation_outcome",
+        "review_date",
+        "review_outcome",
         "schedule_reference",
         "archivist_note",
     ],
@@ -123,24 +124,96 @@ def resolve_sensitivity_end(e, old):
     return compute_sensitivity_end(start, period, rule), False
 
 
+ID_NAMESPACE = uuid.UUID("5d86707f-3d26-4df4-bd16-6f407af2d7d4")
+
+
 def audit(c, e, entity, at):
     c.run(
-        "INSERT INTO archive.metadata_change_event (metadata_change_event_id,source_event_id,entity_type,entity_id,entity_key,change_type,outcome,processing_status,changes,raw_change_payload,changed_at,processed_at,changed_by_id,changed_by_name,change_reason,source_system) VALUES (:id,:eid,:t,:entity,CAST(:key AS jsonb),:ct,:out,'processed',CAST(:ch AS jsonb),CAST(:raw AS jsonb),:at,clock_timestamp(),:by,:name,:why,:source)",
+        "INSERT INTO archive.metadata_change_event (metadata_change_event_id,event_group_id,source_event_id,entity_type,entity_id,entity_key,change_type,outcome,processing_status,changes,raw_change_payload,changed_at,processed_at,changed_by_id,changed_by_name,change_reason,source_system) VALUES (:id,:gid,:eid,:t,:entity,CAST(:key AS jsonb),:ct,:out,'processed',CAST(:ch AS jsonb),CAST(:raw AS jsonb),:at,clock_timestamp(),:by,:name,:why,:source)",
         id=str(uuid.uuid4()),
-        eid=e["event_id"],
+        gid=e["event_group_id"],
+        eid=e["source_event_id"],
         t=e["entity_type"],
         entity=entity,
         key=json.dumps(e["entity_key"]),
         ct=e.get("change_type", "U"),
         out="inserted" if e.get("change_type") == "I" else "updated",
         ch=json.dumps(e.get("changes", {})),
-        raw=json.dumps(e),
+        raw=json.dumps(e.get("raw_change_payload", e)),
         at=at,
         by=e["changed_by"]["id"],
         name=e["changed_by"].get("name"),
         why=e["reason"],
         source=e["source"],
     )
+
+
+def db_connection():
+    return pg8000.native.Connection(
+        host=os.environ["DB_HOST"],
+        port=int(os.environ["DB_PORT"]),
+        database=os.environ["DB_NAME"],
+        user=os.environ["DB_USERNAME"],
+        password=os.environ["DB_PASSWORD"],
+    )
+
+
+def canonical_json(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def normalize_event(payload, event_group_id, base_id, raw_payload=None):
+    if not isinstance(payload, dict):
+        raise ValueError("event must be an object")
+    e = copy.deepcopy(payload)
+    raw = copy.deepcopy(raw_payload if raw_payload is not None else payload)
+    e.pop("event_id", None)
+    e.pop("source_event_id", None)
+    e.setdefault("event_group_id", str(event_group_id))
+    e["event_group_id"] = str(uuid.UUID(str(e["event_group_id"])))
+    e.setdefault("raw_change_payload", raw)
+    keys = e.pop("entity_keys", None)
+    if keys is not None:
+        if "entity_key" in e:
+            raise ValueError("entity_key and entity_keys cannot both be set")
+        if not isinstance(keys, list) or not keys:
+            raise ValueError("entity_keys must be a non-empty list")
+        out = []
+        logical_base = canonical_json({k:v for k,v in raw.items() if k not in ('entity_keys','entity_key','event_group_id')})
+        for key in keys:
+            item = copy.deepcopy(e)
+            item["entity_key"] = key
+            item["raw_change_payload"] = copy.deepcopy(raw)
+            item["source_event_id"] = str(
+                uuid.uuid5(ID_NAMESPACE, f"entity:{item['entity_type']}:{item.get('change_type','U')}:{logical_base}:{canonical_json(key)}")
+            )
+            out.append(item)
+        return out
+    logical = canonical_json({k:v for k,v in raw.items() if k != 'event_group_id'})
+    e["source_event_id"] = str(uuid.uuid5(ID_NAMESPACE, f"event:{e.get('entity_type')}:{e.get('change_type','U')}:{logical}"))
+    return [e]
+
+
+def expand_events(payload, event_group_id=None, base_id=None):
+    if event_group_id is None:
+        event_group_id = str(uuid.uuid4())
+    if base_id is None:
+        base_id = str(event_group_id)
+    event_group_id = str(uuid.UUID(str(event_group_id)))
+    if isinstance(payload, list):
+        out = []
+        for i, item in enumerate(payload):
+            out.extend(expand_events(item, event_group_id=event_group_id, base_id=f"{base_id}:list:{i}"))
+        return out
+    if isinstance(payload, dict) and "events" in payload:
+        base = {k: v for k, v in payload.items() if k != "events"}
+        out = []
+        for i, item in enumerate(payload.get("events") or []):
+            merged = copy.deepcopy(base)
+            merged.update(item)
+            out.extend(expand_events(merged, event_group_id=event_group_id, base_id=f"{base_id}:batch:{i}"))
+        return out
+    return normalize_event(payload, event_group_id, base_id)
 
 
 def insert_entity(c, e, typ, eid, at, by, name, why):
@@ -188,16 +261,13 @@ def insert_entity(c, e, typ, eid, at, by, name, why):
     return result
 
 
-def apply_event(e):
-    eid = str(uuid.UUID(e["event_id"]))
+def apply_event(e, c=None, managed=True):
+    eid = str(uuid.UUID(e["source_event_id"]))
+    e["event_group_id"] = str(uuid.UUID(str(e["event_group_id"])))
     typ = e["entity_type"]
-    c = pg8000.native.Connection(
-        host=os.environ["DB_HOST"],
-        port=int(os.environ["DB_PORT"]),
-        database=os.environ["DB_NAME"],
-        user=os.environ["DB_USERNAME"],
-        password=os.environ["DB_PASSWORD"],
-    )
+    own = c is None
+    if own:
+        c = db_connection()
     try:
         c.run("BEGIN")
         if c.run(
@@ -205,7 +275,7 @@ def apply_event(e):
             e=eid,
         ):
             c.run("COMMIT")
-            return {"outcome": "duplicate"}
+            return {"outcome": "duplicate", "event_group_id": e["event_group_id"], "source_event_id": eid, "entity_type": typ}
         # The database, not the caller, defines the effective change time. One
         # timestamp is reused for the current-row update, SCD history, and audit.
         at = c.run("SELECT clock_timestamp()")[0][0]
@@ -213,7 +283,10 @@ def apply_event(e):
         name = e["changed_by"].get("name")
         why = e["reason"]
         if e.get("change_type") == "I":
-            return insert_entity(c, e, typ, eid, at, by, name, why)
+            result = insert_entity(c, e, typ, eid, at, by, name, why)
+            result["event_group_id"] = e["event_group_id"]
+            result["source_event_id"] = eid
+            return result
 
         if typ == "version":
             i = e["entity_key"]["version_id"]
@@ -285,7 +358,7 @@ def apply_event(e):
         elif typ == "sensitivity":
             i = e["entity_key"]["sensitivity_id"]
             old = c.run(
-                "SELECT version_id,version_title_id,version_description_id,version_path_id,sensitivity_type,sensitivity_type_code,sensitivity_status,sensitivity_start,sensitivity_period,sensitivity_rule,sensitivity_end,investigation_date,investigation_outcome,schedule_reference,archivist_note FROM archive.sensitivity WHERE sensitivity_id=:i FOR UPDATE",
+                "SELECT version_id,version_title_id,version_description_id,version_path_id,sensitivity_type,sensitivity_type_code,sensitivity_status,sensitivity_start,sensitivity_period,sensitivity_rule,sensitivity_end,review_date,review_outcome,schedule_reference,archivist_note FROM archive.sensitivity WHERE sensitivity_id=:i FOR UPDATE",
                 i=i,
             )[0]
             changes = e.get("changes", {})
@@ -304,15 +377,15 @@ def apply_event(e):
                 "sensitivity_period": changes.get("sensitivity_period", old[8]),
                 "sensitivity_rule": changes.get("sensitivity_rule", old[9]),
                 "sensitivity_end": end,
-                "investigation_date": parse_date(
-                    changes.get("investigation_date", old[11]), "investigation_date"
+                "review_date": parse_date(
+                    changes.get("review_date", old[11]), "review_date"
                 ),
-                "investigation_outcome": changes.get("investigation_outcome", old[12]),
+                "review_outcome": changes.get("review_outcome", old[12]),
                 "schedule_reference": changes.get("schedule_reference", old[13]),
                 "archivist_note": changes.get("archivist_note", old[14]),
             }
             c.run(
-                "UPDATE archive.sensitivity SET version_id=:version_id,version_title_id=:version_title_id,version_description_id=:version_description_id,version_path_id=:version_path_id,sensitivity_type=:sensitivity_type,sensitivity_type_code=:sensitivity_type_code,sensitivity_status=:sensitivity_status,sensitivity_start=:sensitivity_start,sensitivity_period=:sensitivity_period,sensitivity_rule=:sensitivity_rule,sensitivity_end=:sensitivity_end,investigation_date=:investigation_date,investigation_outcome=:investigation_outcome,schedule_reference=:schedule_reference,archivist_note=:archivist_note,updated_at=:at WHERE sensitivity_id=:i",
+                "UPDATE archive.sensitivity SET version_id=:version_id,version_title_id=:version_title_id,version_description_id=:version_description_id,version_path_id=:version_path_id,sensitivity_type=:sensitivity_type,sensitivity_type_code=:sensitivity_type_code,sensitivity_status=:sensitivity_status,sensitivity_start=:sensitivity_start,sensitivity_period=:sensitivity_period,sensitivity_rule=:sensitivity_rule,sensitivity_end=:sensitivity_end,review_date=:review_date,review_outcome=:review_outcome,schedule_reference=:schedule_reference,archivist_note=:archivist_note,updated_at=:at WHERE sensitivity_id=:i",
                 at=at,
                 i=i,
                 **new,
@@ -323,7 +396,7 @@ def apply_event(e):
                 i=i,
             )
             c.run(
-                "INSERT INTO history.sensitivity VALUES (:row,:i,:version_id,:version_title_id,:version_description_id,:version_path_id,:sensitivity_type,:sensitivity_type_code,:sensitivity_status,:sensitivity_start,:sensitivity_period,:sensitivity_rule,:sensitivity_end,:investigation_date,:investigation_outcome,:schedule_reference,:archivist_note,:at,NULL,true,:at,:by,:name,:why,:e)",
+                "INSERT INTO history.sensitivity VALUES (:row,:i,:version_id,:version_title_id,:version_description_id,:version_path_id,:sensitivity_type,:sensitivity_type_code,:sensitivity_status,:sensitivity_start,:sensitivity_period,:sensitivity_rule,:sensitivity_end,:review_date,:review_outcome,:schedule_reference,:archivist_note,:at,NULL,true,:at,:by,:name,:why,:e)",
                 row=str(uuid.uuid4()),
                 i=i,
                 at=at,
@@ -337,21 +410,84 @@ def apply_event(e):
             raise ValueError("unsupported entity_type")
         audit(c, e, i, at)
         c.run("COMMIT")
-        result = {"outcome": "updated", "entity_type": typ, "entity_id": i}
+        result = {"outcome": "updated", "entity_type": typ, "entity_id": i, "event_group_id": e["event_group_id"], "source_event_id": eid}
         print(json.dumps(result))
         return result
+    except Exception:
+        if managed:
+            try:
+                c.run("ROLLBACK")
+            except Exception:
+                pass
+        raise
     finally:
-        c.close()
+        if own:
+            c.close()
+
+
+def process_events(events, c=None, event_group_id=None, base_id=None):
+    own = c is None
+    if own:
+        c = db_connection()
+    if event_group_id is None:
+        event_group_id = str(uuid.uuid4())
+    results = []
+    try:
+        for e in expand_events(events, event_group_id=event_group_id, base_id=base_id):
+            try:
+                results.append(apply_event(e, c=c, managed=True))
+            except Exception as x:
+                try:
+                    c.run("ROLLBACK")
+                except Exception:
+                    pass
+                results.append(
+                    {
+                        "outcome": "failed",
+                        "event_group_id": e.get("event_group_id", event_group_id),
+                        "source_event_id": e.get("source_event_id"),
+                        "entity_type": e.get("entity_type"),
+                        "error": str(x),
+                    }
+                )
+        return event_group_id, results
+    finally:
+        if own:
+            c.close()
 
 
 def handler(event, context):
-    if "Records" not in event:
-        return apply_event(event)
-    failures = []
-    for r in event["Records"]:
+    if isinstance(event, dict) and "Records" in event:
+        failures = []
+        c = db_connection()
         try:
-            apply_event(json.loads(r["body"]))
-        except Exception as x:
-            print(str(x))
-            failures.append({"itemIdentifier": r["messageId"]})
-    return {"batchItemFailures": failures}
+            for r in event["Records"]:
+                try:
+                    body = json.loads(r["body"])
+                    gid = str(uuid.uuid5(ID_NAMESPACE, f"sqs:{r.get('messageId')}"))
+                    for e in expand_events(body, event_group_id=gid, base_id=f"sqs:{r.get('messageId')}"):
+                        apply_event(e, c=c, managed=True)
+                except Exception as x:
+                    print(str(x))
+                    try:
+                        c.run("ROLLBACK")
+                    except Exception:
+                        pass
+                    failures.append({"itemIdentifier": r["messageId"]})
+        finally:
+            c.close()
+        return {"batchItemFailures": failures}
+
+    request_id = getattr(context, "aws_request_id", None) or str(uuid.uuid4())
+    gid = str(uuid.uuid5(ID_NAMESPACE, f"invoke:{request_id}"))
+    is_batch = isinstance(event, list) or (isinstance(event, dict) and ("events" in event or "entity_keys" in event))
+    if not is_batch and isinstance(event, dict):
+        c = db_connection()
+        try:
+            result = apply_event(expand_events(event, event_group_id=gid, base_id=f"invoke:{request_id}")[0], c=c, managed=True)
+            return {"event_group_id": gid, "results": [result], "ok": result.get("outcome") != "failed"}
+        finally:
+            c.close()
+    gid, results = process_events(event, event_group_id=gid, base_id=f"invoke:{request_id}")
+    failures = [r for r in results if r.get("outcome") == "failed"]
+    return {"event_group_id": gid, "results": results, "batchItemFailures": failures, "ok": not failures}

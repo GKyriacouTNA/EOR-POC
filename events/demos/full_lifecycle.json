@@ -1,0 +1,76 @@
+{
+  "events": [
+    {
+      "entity_type": "sensitivity",
+      "entity_key": {
+        "sensitivity_id": "10000000-0000-4000-8000-000000000014"
+      },
+      "change_type": "U",
+      "changes": {
+        "sensitivity_status": "internal_review",
+        "review_date": null,
+        "review_outcome": null
+      },
+      "changed_by": {
+        "id": "sensitivity.officer",
+        "name": "Closure Officer"
+      },
+      "reason": "Enter internal review; outcome pending",
+      "source": "demo"
+    },
+    {
+      "entity_type": "sensitivity",
+      "entity_key": {
+        "sensitivity_id": "10000000-0000-4000-8000-000000000014"
+      },
+      "change_type": "U",
+      "changes": {
+        "sensitivity_status": "active",
+        "review_date": "2026-11-18",
+        "review_outcome": "upheld"
+      },
+      "changed_by": {
+        "id": "sensitivity.officer",
+        "name": "Closure Officer"
+      },
+      "reason": "Internal review outcome: sensitivity upheld",
+      "source": "demo"
+    },
+    {
+      "entity_type": "sensitivity",
+      "entity_key": {
+        "sensitivity_id": "10000000-0000-4000-8000-000000000014"
+      },
+      "change_type": "U",
+      "changes": {
+        "sensitivity_status": "advisory_council_review",
+        "review_date": null,
+        "review_outcome": null
+      },
+      "changed_by": {
+        "id": "sensitivity.officer",
+        "name": "Closure Officer"
+      },
+      "reason": "Enter ACR; outcome pending",
+      "source": "demo"
+    },
+    {
+      "entity_type": "sensitivity",
+      "entity_key": {
+        "sensitivity_id": "10000000-0000-4000-8000-000000000014"
+      },
+      "change_type": "U",
+      "changes": {
+        "sensitivity_status": "cancelled",
+        "review_date": "2026-11-21",
+        "review_outcome": "lifted"
+      },
+      "changed_by": {
+        "id": "sensitivity.officer",
+        "name": "Closure Officer"
+      },
+      "reason": "ACR outcome: sensitivity lifted",
+      "source": "demo"
+    }
+  ]
+}
