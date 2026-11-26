@@ -1,4 +1,4 @@
-CREATE EXTENSION pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE SCHEMA archive;
 
@@ -119,10 +119,11 @@ CREATE TABLE archive.sensitivity (
   sensitivity_status text NOT NULL CHECK (
     sensitivity_status IN (
       'active',
-      'lapsed',
-      'under investigation',
+      'internal_review',
+      'advisory_council_review',
       'superceeded',
-      'cancelled'
+      'cancelled',
+      'expired'
     )
   ),
   sensitivity_start date,
@@ -131,8 +132,8 @@ CREATE TABLE archive.sensitivity (
     sensitivity_rule IN ('JAN_AFTER_PERIOD', 'EXACT_PERIOD', 'MANUAL')
   ),
   sensitivity_end date,
-  investigation_date date,
-  investigation_outcome text CHECK (investigation_outcome IN ('open', 'close')),
+  review_date date,
+  review_outcome text CHECK (review_outcome IN ('upheld', 'lifted')),
   schedule_reference text,
   archivist_note text,
   updated_at timestamptz NOT NULL,
@@ -146,8 +147,14 @@ CREATE TABLE archive.sensitivity (
   )
 );
 
+CREATE INDEX archive_sensitivity_active_end_idx ON archive.sensitivity (sensitivity_end)
+WHERE
+  sensitivity_status = 'active'
+  AND sensitivity_end IS NOT NULL;
+
 CREATE TABLE archive.metadata_change_event (
   metadata_change_event_id uuid PRIMARY KEY,
+  event_group_id uuid NOT NULL,
   source_event_id uuid UNIQUE NOT NULL,
   entity_type text NOT NULL,
   entity_id uuid,
@@ -355,10 +362,11 @@ CREATE TABLE history.sensitivity (
   sensitivity_status text NOT NULL CHECK (
     sensitivity_status IN (
       'active',
-      'lapsed',
-      'under investigation',
+      'internal_review',
+      'advisory_council_review',
       'superceeded',
-      'cancelled'
+      'cancelled',
+      'expired'
     )
   ),
   sensitivity_start date,
@@ -367,8 +375,8 @@ CREATE TABLE history.sensitivity (
     sensitivity_rule IN ('JAN_AFTER_PERIOD', 'EXACT_PERIOD', 'MANUAL')
   ),
   sensitivity_end date,
-  investigation_date date,
-  investigation_outcome text CHECK (investigation_outcome IN ('open', 'close')),
+  review_date date,
+  review_outcome text CHECK (review_outcome IN ('upheld', 'lifted')),
   schedule_reference text,
   archivist_note text,
   valid_from timestamptz NOT NULL,
@@ -378,10 +386,88 @@ CREATE TABLE history.sensitivity (
   changed_by_id text NOT NULL,
   changed_by_name text,
   change_reason text NOT NULL,
-  source_event_id uuid UNIQUE NOT NULL
+  source_event_id uuid UNIQUE NOT NULL,
+  CHECK (
+    num_nonnulls (
+      version_id,
+      version_title_id,
+      version_description_id,
+      version_path_id
+    ) = 1
+  )
 );
 
 CREATE VIEW archive.current_version_display AS
+WITH
+  version_targets AS (
+    SELECT
+      v.version_id,
+      v.version_id AS target_id
+    FROM
+      archive.version v
+    UNION ALL
+    SELECT
+      vt.version_id,
+      vt.version_title_id AS target_id
+    FROM
+      archive.version_title vt
+    UNION ALL
+    SELECT
+      vd.version_id,
+      vd.version_description_id AS target_id
+    FROM
+      archive.version_description vd
+    UNION ALL
+    SELECT
+      vp.version_id,
+      vp.version_path_id AS target_id
+    FROM
+      archive.version_path vp
+  ),
+  sensitivity_targets AS (
+    SELECT
+      COALESCE(
+        s.version_id,
+        vt.version_id,
+        vd.version_id,
+        vp.version_id
+      ) AS version_id,
+      COALESCE(
+        s.version_id,
+        s.version_title_id,
+        s.version_description_id,
+        s.version_path_id
+      ) AS target_id
+    FROM
+      archive.sensitivity s
+      LEFT JOIN archive.version_title vt ON vt.version_title_id = s.version_title_id
+      LEFT JOIN archive.version_description vd ON vd.version_description_id = s.version_description_id
+      LEFT JOIN archive.version_path vp ON vp.version_path_id = s.version_path_id
+    WHERE
+      s.sensitivity_status IN ('active', 'internal_review', 'advisory_council_review')
+  ),
+  restricted_targets AS (
+    SELECT DISTINCT
+      version_id,
+      target_id
+    FROM
+      sensitivity_targets
+    WHERE
+      version_id IS NOT NULL
+      AND target_id IS NOT NULL
+  ),
+  version_exposure AS (
+    SELECT
+      vt.version_id,
+      COUNT(DISTINCT vt.target_id) AS target_count,
+      COUNT(DISTINCT rt.target_id) AS restricted_target_count
+    FROM
+      version_targets vt
+      LEFT JOIN restricted_targets rt ON rt.version_id = vt.version_id
+      AND rt.target_id = vt.target_id
+    GROUP BY
+      vt.version_id
+  )
 SELECT
   v.version_id,
   d.department_code,
@@ -390,7 +476,12 @@ SELECT
   v.version_code,
   t.title_text AS default_title,
   ds.description_text AS default_description,
-  p.path_value AS default_path
+  p.path_value AS default_path,
+  CASE
+    WHEN COALESCE(ve.restricted_target_count, 0) = 0 THEN 'OPEN'
+    WHEN ve.restricted_target_count < ve.target_count THEN 'PARTIALLY_OPEN'
+    ELSE 'CLOSED'
+  END AS sensitivity_exposure
 FROM
   archive.version v
   JOIN archive.record r ON r.record_id = v.record_id
@@ -401,7 +492,8 @@ FROM
   LEFT JOIN archive.version_description ds ON ds.version_id = v.version_id
   AND ds.description_code = v.default_description_code
   LEFT JOIN archive.version_path p ON p.version_id = v.version_id
-  AND p.path_code = v.default_path_code;
+  AND p.path_code = v.default_path_code
+  LEFT JOIN version_exposure ve ON ve.version_id = v.version_id;
 
 CREATE VIEW archive.current_active_sensitivity AS
 SELECT
@@ -409,4 +501,8 @@ SELECT
 FROM
   archive.sensitivity
 WHERE
-  sensitivity_status in ('active', 'under investigation');
+  sensitivity_status in (
+    'active',
+    'internal_review',
+    'advisory_council_review'
+  );

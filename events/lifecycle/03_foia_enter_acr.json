@@ -1,0 +1,15 @@
+[
+  {
+    "entity_type": "sensitivity",
+    "entity_key": { "sensitivity_id": "10000000-0000-4000-8000-000000000014" },
+    "change_type": "U",
+    "changes": {
+      "sensitivity_status": "advisory_council_review",
+      "review_date": null,
+      "review_outcome": null
+    },
+    "changed_by": { "id": "sensitivity.officer", "name": "Closure Officer" },
+    "reason": "Escalate to Advisory Council Review; outcome pending",
+    "source": "lifecycle-demo"
+  }
+]

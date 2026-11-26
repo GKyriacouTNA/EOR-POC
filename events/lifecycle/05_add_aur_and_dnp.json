@@ -1,0 +1,61 @@
+[
+  {
+    "entity_type": "sensitivity",
+    "entity_key": {
+      "sensitivity_id": "10000000-0000-4000-8000-000000000015"
+    },
+    "change_type": "I",
+    "changes": {
+      "version_id": null,
+      "version_title_id": "10000000-0000-4000-8000-000000000005",
+      "version_description_id": null,
+      "version_path_id": null,
+      "sensitivity_type": "AUR",
+      "sensitivity_type_code": "AUR-001",
+      "sensitivity_status": "active",
+      "sensitivity_start": "2026-11-22",
+      "sensitivity_period": "P6M",
+      "sensitivity_rule": "EXACT_PERIOD",
+      "review_date": null,
+      "review_outcome": null,
+      "schedule_reference": null,
+      "archivist_note": "Sensitive content identified in original title"
+    },
+    "changed_by": {
+      "id": "sensitivity.officer",
+      "name": "Closure Officer"
+    },
+    "reason": "Add AUR to original title",
+    "source": "lifecycle-demo"
+  },
+  {
+    "entity_type": "sensitivity",
+    "entity_key": {
+      "sensitivity_id": "10000000-0000-4000-8000-000000000016"
+    },
+    "change_type": "I",
+    "changes": {
+      "version_id": "10000000-0000-4000-8000-000000000006",
+      "version_title_id": null,
+      "version_description_id": null,
+      "version_path_id": null,
+      "sensitivity_type": "do not publish",
+      "sensitivity_type_code": "DNP-COPYRIGHT",
+      "sensitivity_status": "active",
+      "sensitivity_start": "2026-11-22",
+      "sensitivity_period": null,
+      "sensitivity_rule": "MANUAL",
+      "sensitivity_end": null,
+      "review_date": null,
+      "review_outcome": null,
+      "schedule_reference": null,
+      "archivist_note": "Open in principle; not published due to copyright"
+    },
+    "changed_by": {
+      "id": "sensitivity.officer",
+      "name": "Closure Officer"
+    },
+    "reason": "Add publication restriction",
+    "source": "lifecycle-demo"
+  }
+]

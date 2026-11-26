@@ -1,0 +1,31 @@
+[
+  {
+    "entity_type": "sensitivity",
+    "entity_key": {
+      "sensitivity_id": "10000000-0000-4000-8000-000000000017"
+    },
+    "change_type": "I",
+    "changes": {
+      "version_id": null,
+      "version_title_id": null,
+      "version_description_id": "10000000-0000-4000-8000-000000000007",
+      "version_path_id": null,
+      "sensitivity_type": "FOIA",
+      "sensitivity_type_code": "40(2)",
+      "sensitivity_status": "active",
+      "sensitivity_start": "2020-01-01",
+      "sensitivity_period": "P1Y",
+      "sensitivity_rule": "EXACT_PERIOD",
+      "review_date": null,
+      "review_outcome": null,
+      "schedule_reference": null,
+      "archivist_note": "Past-end closure for expiry checker demo"
+    },
+    "changed_by": {
+      "id": "sensitivity.officer",
+      "name": "Closure Officer"
+    },
+    "reason": "Create past-end active sensitivity",
+    "source": "lifecycle-demo"
+  }
+]

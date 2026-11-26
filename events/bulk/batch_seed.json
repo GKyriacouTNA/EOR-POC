@@ -1,0 +1,56 @@
+{
+  "events": [
+    {
+      "entity_type": "department",
+      "entity_key": {
+        "department_id": "20000000-0000-4000-8000-000000000001"
+      },
+      "change_type": "I",
+      "changes": {
+        "department_code": "BATCH",
+        "name": "Batch Demo Department"
+      },
+      "changed_by": {
+        "id": "seed",
+        "name": "Seed"
+      },
+      "reason": "Batch wrapper demo",
+      "source": "batch-demo"
+    },
+    {
+      "entity_type": "series",
+      "entity_key": {
+        "series_id": "20000000-0000-4000-8000-000000000002"
+      },
+      "change_type": "I",
+      "changes": {
+        "department_id": "20000000-0000-4000-8000-000000000001",
+        "series_code": "B1",
+        "name": "Batch series"
+      },
+      "changed_by": {
+        "id": "seed",
+        "name": "Seed"
+      },
+      "reason": "Batch wrapper demo",
+      "source": "batch-demo"
+    },
+    {
+      "entity_type": "record",
+      "entity_key": {
+        "record_id": "20000000-0000-4000-8000-000000000003"
+      },
+      "change_type": "I",
+      "changes": {
+        "series_id": "20000000-0000-4000-8000-000000000002",
+        "record_reference": "BATCH-001"
+      },
+      "changed_by": {
+        "id": "seed",
+        "name": "Seed"
+      },
+      "reason": "Batch wrapper demo",
+      "source": "batch-demo"
+    }
+  ]
+}
